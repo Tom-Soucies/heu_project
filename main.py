@@ -18,11 +18,11 @@ Different modules are imported to have a more convenient architecture and to fac
 print("Step 1:")
 print("Importing required dependencies...")
 # Ignore the following lines if the packages are already installed
-import subprocess
-import sys
-subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'ioh'])
-subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'iohinspector'])
-subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'tqdm', 'networkx', 'scipy']) # for some additional functionality
+# import subprocess
+# import sys
+# subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'ioh'])
+# subprocess.check_call([sys.executable, '-m', 'pip', 'install', '--upgrade', 'iohinspector'])
+# subprocess.check_call([sys.executable, '-m', 'pip', 'install', 'tqdm', 'networkx', 'scipy']) # for some additional functionality
 
 # Parsing command line arguments
 import argparse
@@ -360,10 +360,9 @@ def params():
       ax.grid()
       plt.savefig(f"plots/{algorithm.__class__.__name__}_{problem.meta_data.name}.png")
 
-# Test mode #
 # Running a tournament to find the best algorithm on multiple problems
-def test_mode():
-  print("Running in test mode...")
+def tournament():
+  print("Running tournament...")
   
   # Problem instances
   problems = []
@@ -418,6 +417,53 @@ def test_mode():
   ax.set_title(f"Tournament Ranking, budget={BUDGET}, dim={DIMENSION}")
   ax.grid()
   plt.savefig("plots/tournament_ranking_max_coverage.png")
+
+# Test mode #
+def test_mode():
+  print("Running in test mode...")
+  
+  cut = rd.randint(2000, 2004)
+  cov = rd.randint(2100, 2139)
+  inf = rd.randint(2200, 2223)
+  pwt = rd.randint(2300, 2308)
+  problem_cut = ioh.get_problem(cut, instance=1, dimension=DIMENSION, problem_class=ioh.ProblemClass.GRAPH)
+  problem_cov = ioh.get_problem(cov, instance=1, dimension=DIMENSION, problem_class=ioh.ProblemClass.GRAPH)
+  problem_inf = ioh.get_problem(inf, instance=1, dimension=DIMENSION, problem_class=ioh.ProblemClass.GRAPH)
+  problem_pwt = ioh.get_problem(pwt, instance=1, dimension=DIMENSION, problem_class=ioh.ProblemClass.GRAPH)
+  problems = [problem_cut]
+
+  lambdas = [2, 10, 50, 200]
+
+  from better_lamb import better_lamb
+  
+  for problem in problems:
+
+    manager = inspector.DataManager()
+
+    for lam in lambdas:
+      print(f"Testing better_lamb with λ={lam} on problem '{problem.meta_data.name}'...")
+      algorithm = better_lamb(budget=BUDGET, lam=lam, rate=2)
+      logger = open_logger(algorithm.__class__.__name__ + f"_lam{lam}", problem, str="test_mode")
+      problem.attach_logger(logger)
+      for _ in tqdm(range(N_RUNS)):
+        algorithm(problem)
+        problem.reset()
+      logger.close()
+      manager.add_folder(logger.output_directory)
+  
+    print("Test mode experiments completed.")
+    
+    # Plotting results
+    results = manager.load(monotonic=True, include_meta_data=True)
+    _, ax = plt.subplots(figsize=(16, 9))
+    inspector.plot.single_function_fixedbudget(results.filter(pl.col("function_id").eq(problem.meta_data.problem_id)), ax=ax, maximization=True, measures=['mean'])
+    ax.set_xlim(1, 100000)
+    ax.set_yscale('linear')
+    ax.set_title(f"better_lamb by λ on {problem.meta_data.name}, budget={BUDGET}, dim={DIMENSION}")
+    ax.grid()
+    plt.savefig(f"plots/better_lamb_lam_{problem.meta_data.name}.png")
+    plt.show()
+
 
 print("Running the experiments ...")
 
