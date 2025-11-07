@@ -9,13 +9,14 @@ import ioh
 
 class umda:
   
-  def __init__(self, budget: int, population_size: int = 50):
+  def __init__(self, budget: int, population_size: int = 50, top_k: int = 10):
     self.budget = budget
     self.population_size = population_size
+    self.top_k = top_k
 
   def __call__(self, problem: ioh.problem.IntegerSingleObjective) -> None:
     n = problem.meta_data.n_variables
-    half_pop = self.population_size // 2
+    # self.top_k = self.population_size // 2
 
     # Initialize population with random binary solutions
     population = np.random.randint(0, 2, size=(self.population_size, n))
@@ -23,7 +24,7 @@ class umda:
 
     while problem.state.evaluations < self.budget and not problem.state.optimum_found:
       # Select the best half of the population
-      selected_indices = np.argsort(fitness_values)[-half_pop:]
+      selected_indices = np.argsort(fitness_values)[-self.top_k:]
       selected_population = population[selected_indices]
 
       # Estimate marginal probabilities
@@ -40,4 +41,4 @@ class umda:
       return f'  {self.population_size}'
 
   def printer(self):
-      print(f"Univariate Marginal Distribution Algorithm with budget {self.budget} evaluations and population size {self.population_size}")
+      print(f"Univariate Marginal Distribution Algorithm with budget {self.budget} evaluations, population size {self.population_size}, top-k {self.top_k}")
